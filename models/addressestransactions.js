@@ -1,15 +1,16 @@
-module.exports = function (mongoose) {
+module.exports = function(mongoose) {
   var AddressesTransactionsSchema = new mongoose.Schema({
     address: { type: String, index: true },
     txid: String,
-    updated: {type: Date, index: true}
+    updated: { type: Date, index: true }
   })
 
-  AddressesTransactionsSchema.pre('update', function () {
+  AddressesTransactionsSchema.pre('update', function() {
     this.updated = new Date()
   })
 
-  AddressesTransactionsSchema.index({
+  AddressesTransactionsSchema.index(
+    {
       address: 1,
       txid: 1
     },
