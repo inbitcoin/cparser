@@ -1,6 +1,7 @@
 # Colored Coins Block Parser
 
-> Connects to Bitcoind (Json RPC) and parse the blockchain into mongodb including Colored Coins asset data, utxo's for address and much more.
+> Connects to Bitcoin Core (JSON-RPC) and parse the blockchain into MongoDB including Colored Coins
+asset data, addresses UTXOs and much more.
 
 ## Usage
 
@@ -8,4 +9,5 @@ This project is used only in [cexplorer](https://github.com/inbitcoin/cexplorer)
 
 ## License
 
-[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+This software is licensed under the Apache License, Version 2.0.
+See [LICENSE](LICENSE) for the full license text.
