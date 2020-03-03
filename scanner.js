@@ -508,7 +508,7 @@ Scanner.prototype.parse_cc = function (err, callback) {
     //   return callback('num_of_blocks: '+num_of_blocks+' first_block: '+first_block+' last_block: '+last_block)
     // }
     // var next_block = raw_block_data.height
-    var did_work = false
+
     var close_blocks = function (err, empty) {
       // logger.debug('closing')
       if (debug) console.timeEnd('parse_cc_bulks')
@@ -516,15 +516,7 @@ Scanner.prototype.parse_cc = function (err, callback) {
       emits.forEach(function (emit) {
         self.emit(emit[0], emit[1])
       })
-      if (!empty) {
-        if (did_work) {
-          return callback()
-        } else {
-          return setTimeout(function () {
-            callback()
-          }, 500)
-        }
-      }
+      if (!empty) return callback()
       var bulk = self.Blocks.collection.initializeUnorderedBulkOp()
       raw_block_datas.forEach(function (raw_block_data) {
         if (raw_block_data.txsparsed) {
@@ -537,11 +529,7 @@ Scanner.prototype.parse_cc = function (err, callback) {
           })
         }
       })
-      if (!bulk.length) {
-        return setTimeout(function () {
-          callback()
-        }, 500)
-      }
+      if (!bulk.length) return callback()
       bulk.execute(callback)
     }
 
@@ -574,7 +562,6 @@ Scanner.prototype.parse_cc = function (err, callback) {
         self.parse_cc_tx(transaction_data, utxo_bulk, assets_transactions_bulk, assets_utxos_bulk, assets_addresses_bulk)
 
         if (transaction_data.iosparsed) {
-          did_work = true
           var conditions = {
             iosparsed: true,
             txid: transaction_data.txid
