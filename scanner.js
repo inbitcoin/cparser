@@ -24,8 +24,8 @@ function Scanner (settings, db) {
   self.last_fully_parsed_block = settings.last_fully_parsed_block
   bitcoin_rpc = new bitcoin.Client(settings.rpc_settings)
   self.skip_missing_txid = properties.scanner.skip_missing_txid
-  self.limit_fixer = properties.scanner.limit_fixer
-  self.limit_ccparser = properties.scanner.limit_ccparser
+  self.limit_fixer = 1
+  self.limit_ccparser = 1
   self.asset_to_filter = properties.scanner.asset_id
   self.colored_filter = properties.scanner.colored_filter
   self.issuance_txid = properties.scanner.issuance_txid
