@@ -822,7 +822,7 @@ Scanner.prototype.get_raw_block = function (block_height, callback) {
         callback(err)
       }
     } else if (hash) {
-      bitcoin_rpc.cmd('getblock', [hash], callback)
+      bitcoin_rpc.cmd('getblock', [hash, 2], callback)
     } else {
       bitcoin_rpc.cmd('getblockcount', [], function (err, block_count) {
         if (err) return callback(err)
@@ -851,17 +851,19 @@ Scanner.prototype.parse_new_block = function (raw_block_data, callback) {
   }
   console.log('parsing new block ' + raw_block_data.height)
 
-  var command_arr = []
+  var txs = raw_block_data.tx || []
+  delete raw_block_data.tx
+  raw_block_data.tx = []
 
-  raw_block_data.tx.forEach(function (txhash) {
-    var to_revert_tx_index = self.to_revert.indexOf(txhash)
+  txs.forEach(function (tx) {
+    var to_revert_tx_index = self.to_revert.indexOf(tx.txid)
     if (to_revert_tx_index !== -1) {
       self.to_revert.splice(to_revert_tx_index, 1)
     }
     if (self.mempool_txs) {
       var mempool_tx_index = -1
       self.mempool_txs.forEach(function (mempool_tx, i) {
-        if (!~mempool_tx_index && mempool_tx.txid === txhash) {
+        if (!~mempool_tx_index && mempool_tx.txid === tx.txid) {
           mempool_tx_index = i
         }
       })
@@ -869,10 +871,8 @@ Scanner.prototype.parse_new_block = function (raw_block_data, callback) {
         self.mempool_txs.splice(mempool_tx_index, 1)
       }
     }
-    command_arr.push({ method: 'getrawtransaction', params: [txhash, 1]})
+    raw_block_data.tx.push(tx.txid)
   })
-
-  // console.log(raw_block_data.tx)
 
   var utxo_bulk = self.Utxo.collection.initializeUnorderedBulkOp()
   utxo_bulk.bulk_name = 'utxo_bulk'
@@ -882,53 +882,41 @@ Scanner.prototype.parse_new_block = function (raw_block_data, callback) {
   addresses_utxos_bulk.bulk_name = 'addresses_utxos_bulk'
   var raw_transaction_bulk = self.RawTransactions.collection.initializeUnorderedBulkOp()
   raw_transaction_bulk.bulk_name = 'raw_transaction_bulk'
-  // var addresses_assets = {}
-  // console.log('command_arr', command_arr)
-  bitcoin_rpc.cmd(command_arr, function (raw_transaction_data, cb) {
-    // console.log('raw_transaction_data.txid', raw_transaction_data.txid)
+
+  txs.forEach(function (raw_transaction_data) {
     raw_transaction_data = to_discrete(raw_transaction_data)
+    raw_transaction_data.blocktime = raw_block_data.time
+    raw_transaction_data.blockheight = raw_block_data.height
+    raw_transaction_data.blockhash = raw_block_data.hash
+    raw_transaction_data.time = raw_block_data.time
     var out = self.parse_new_transaction(raw_transaction_data, raw_block_data.height, raw_transaction_bulk, utxo_bulk, addresses_transactions_bulk, addresses_utxos_bulk)
-    if (out == -1) {
-      return cb()
-    }
-    if (out) {
+    if (out && out !== -1) {
       raw_block_data.totalsent += out
       if (is_coinbase(raw_transaction_data)) {
         raw_block_data.fees = out || raw_block_data.reward
         raw_block_data.fees -= raw_block_data.reward
       }
     }
-    cb()
-  },
-  function (err) {
-    if (err) {
-      if ('code' in err && err.code === -5) {
-        console.error('Can\'t find tx.')
-      } else {
-        console.error('parse_new_block_err: ', err)
-        // console.error(command_arr)
-        return callback(err)
-      }
-    }
-    if (debug) console.time('vout_parse_bulks')
-    execute_bulks_parallel([utxo_bulk, addresses_transactions_bulk, addresses_utxos_bulk, raw_transaction_bulk], function (err) {
-      if (debug) console.timeEnd('vout_parse_bulks')
-      if (err) return callback(err)
-      raw_block_data.txinserted = true
-      // self.emit('newblock', raw_block_data) //TODO: add total sent
-      var blocks_bulk = self.Blocks.collection.initializeOrderedBulkOp()
-      if (!properties.next_hash) {
-        blocks_bulk.find({hash: raw_block_data.previousblockhash}).updateOne({$set: {nextblockhash: raw_block_data.hash}})
-      }
-      blocks_bulk.find(conditions).upsert().updateOne(raw_block_data)
+  })
 
-      blocks_bulk.execute(function (err) {
-        if (err) return callback(err)
-        self.set_last_hash(raw_block_data.hash)
-        self.set_last_block(raw_block_data.height)
-        self.set_next_hash(raw_block_data.nextblockhash)
-        callback()
-      })
+  if (debug) console.time('vout_parse_bulks')
+  execute_bulks_parallel([utxo_bulk, addresses_transactions_bulk, addresses_utxos_bulk, raw_transaction_bulk], function (err) {
+    if (debug) console.timeEnd('vout_parse_bulks')
+    if (err) return callback(err)
+    raw_block_data.txinserted = true
+    // self.emit('newblock', raw_block_data) //TODO: add total sent
+    var blocks_bulk = self.Blocks.collection.initializeOrderedBulkOp()
+    if (!properties.next_hash) {
+      blocks_bulk.find({hash: raw_block_data.previousblockhash}).updateOne({$set: {nextblockhash: raw_block_data.hash}})
+    }
+    blocks_bulk.find(conditions).upsert().updateOne(raw_block_data)
+
+    blocks_bulk.execute(function (err) {
+      if (err) return callback(err)
+      self.set_last_hash(raw_block_data.hash)
+      self.set_last_block(raw_block_data.height)
+      self.set_next_hash(raw_block_data.nextblockhash)
+      callback()
     })
   })
 }
