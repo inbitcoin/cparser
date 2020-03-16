@@ -30,6 +30,7 @@ function Scanner (settings, db) {
   self.colored_filter = properties.scanner.colored_filter
   self.issuance_txid = properties.scanner.issuance_txid
   self.retry_missing_txid =  properties.scanner.retry_missing_txid || 2
+  self.max_block_to_get = properties.scanner.max_block_to_get || 500
   logger.info('limit_fixer: ', self.limit_fixer)
   logger.info('limit_ccparser: ', self.limit_ccparser)
   logger.info('colored_filter enabled:', self.colored_filter)
@@ -89,6 +90,15 @@ Scanner.prototype.scan_blocks = function (err) {
 
   async.waterfall([
     function (cb) {
+      self.get_all_blocks_to_cc_parse(cb)
+    },
+    function (unparsed_blocks, cb) {
+      if (unparsed_blocks && unparsed_blocks.length >= self.max_block_to_get) {
+        return setTimeout(function () {
+          logger.info('max_block_to_cc ' + self.max_block_to_get  + ' limit reached up')
+          self.scan_blocks()
+        }, 500)
+      }
       self.get_next_new_block(cb)
     },
     function (l_next_block, l_last_hash, cb) {
@@ -736,6 +746,20 @@ Scanner.prototype.get_next_block_to_cc_parse = function (limit, callback) {
   this.Blocks.find(conditions, projection)
   .sort('height')
   .limit(limit)
+  .lean()
+  .exec(callback)
+}
+
+Scanner.prototype.get_all_blocks_to_cc_parse = function (callback) {
+  // var self = this
+  var conditions = {
+    ccparsed: false
+  }
+  var projection = {
+    height: 1,
+    _id: 0
+  }
+  this.Blocks.find(conditions, projection)
   .lean()
   .exec(callback)
 }
