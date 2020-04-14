@@ -26,16 +26,12 @@ function Scanner (settings, db) {
   self.skip_missing_txid = properties.scanner.skip_missing_txid
   self.limit_fixer = 1
   self.limit_ccparser = 1
-  self.asset_to_filter = properties.scanner.asset_id
+  self.asset_to_filter = ''
   self.colored_filter = properties.scanner.colored_filter
-  self.issuance_txid = properties.scanner.issuance_txid
+  self.issuance_txid = ''
   self.retry_missing_txid =  properties.scanner.retry_missing_txid || 2
   self.max_block_to_get = properties.scanner.max_block_to_get || 500
-  logger.info('limit_fixer: ', self.limit_fixer)
-  logger.info('limit_ccparser: ', self.limit_ccparser)
   logger.info('colored_filter enabled:', self.colored_filter)
-  logger.info('asset_to_filter:', self.asset_to_filter)
-  logger.info('issuance_txid:', self.issuance_txid)
 
   self.Blocks = db.model('blocks', require(__dirname + '/models/blocks')(db, properties))
   self.RawTransactions = db.model('rawtransactions', require(__dirname + '/models/rawtransactions')(db, properties))
