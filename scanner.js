@@ -1366,18 +1366,22 @@ Scanner.prototype.parse_new_transaction = function (raw_transaction_data, block_
   if (out == -1) {
     return out;
   }
-  raw_transaction_data.iosparsed = false
-  raw_transaction_data.ccparsed = false
   var update = {
     blocktime: raw_transaction_data.blocktime,
     blockheight: raw_transaction_data.blockheight,
     blockhash: raw_transaction_data.blockhash,
-    time: raw_transaction_data.time
+    time: raw_transaction_data.time,
+    vin: raw_transaction_data.vin,
+    vout: raw_transaction_data.vout,
+    iosparsed: false,
+    ccparsed: false,
   }
   delete raw_transaction_data.blocktime
   delete raw_transaction_data.blockheight
   delete raw_transaction_data.blockhash
   delete raw_transaction_data.time
+  delete raw_transaction_data.vin
+  delete raw_transaction_data.vout
   raw_transaction_bulk.find(conditions).upsert().updateOne({
     $setOnInsert: raw_transaction_data,
     $set: update
