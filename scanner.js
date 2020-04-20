@@ -1125,7 +1125,8 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
       all_fixed = true
     } else if (missing_tx_to_fix_prev) {
       all_fixed = false;
-    } else if (raw_transaction_data.tries > self.retry_missing_txid && self.skip_missing_txid) {
+    } else if ((raw_transaction_data.tries > self.retry_missing_txid && self.skip_missing_txid) &&
+              !(txs_ccparsed_false != null && txs_ccparsed_false.length > 0)) {
       all_fixed = true;
     }
     if (all_fixed) {
