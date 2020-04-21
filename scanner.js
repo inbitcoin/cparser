@@ -995,6 +995,8 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
   var coinbase = false
   var utxos  // utxos spent by raw_transaction
   var txs_ccparsed_false // txs with ccparsed=false in previous blocks
+  var input_txs_already_saved = [] // used to check existing tx in db used as a utxo
+  var conditions_input_txs_already_saved = []
 
   if (!raw_transaction_data.vin) {
     return callback()
@@ -1026,6 +1028,9 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
                   ccparsed: true
                 }
               ]
+            })
+            conditions_input_txs_already_saved.push({
+              txid: vin.txid
             })
             vins[vin.txid + ':' + vin.vout] = vin
             utxos_input_indices[vin.txid + ':' + vin.vout] = i
@@ -1079,6 +1084,7 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
       cb()
     },
     function (cb) {
+      if (coinbase) return cb(null, [])
       var conditions = []
       conditions.push({
         ccparsed: false,
@@ -1090,6 +1096,18 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
       txs_ccparsed_false = txs
       cb()
     },
+    function (cb) {
+      if (coinbase) return cb(null, [])
+      var projection = {
+        txid: 1
+      }
+      self.RawTransactions.find({'$or': conditions_input_txs_already_saved}, projection).lean().exec(cb)
+    },
+    function (txs, cb) {
+      if (coinbase) return cb()
+      input_txs_already_saved = txs
+      cb()
+    },
   ],
   function (err) {
     if (err) return callback(err)
@@ -1097,13 +1115,19 @@ Scanner.prototype.parse_vin = function (raw_transaction_data, block_height, utxo
     add_remove_to_bulk(utxos_input_indices, utxos, utxo_bulk, block_height, raw_transaction_data)
     var all_fixed = (Object.keys(vins).length === 0)
 
-    // skip start_block utxo
-    if (properties.scanner.start_block && block_height == (properties.scanner.start_block + 1) && self.skip_missing_txid)
-      all_fixed = true
+    // find txs already saved on db used as a input
+    var missing_tx_to_fix_prev = _.find(Object.keys(vins), function(item) {
+      return vins[item] && _.find(input_txs_already_saved, ['txid', vins[item].txid])
+    })
 
-    // continue on max retries
-    if (raw_transaction_data.tries > self.retry_missing_txid && self.skip_missing_txid)
+    // skip start_block utxo
+    if (properties.scanner.start_block && block_height == (properties.scanner.start_block + 1) && self.skip_missing_txid) {
+      all_fixed = true
+    } else if (missing_tx_to_fix_prev) {
+      all_fixed = false;
+    } else if (raw_transaction_data.tries > self.retry_missing_txid && self.skip_missing_txid) {
       all_fixed = true;
+    }
     if (all_fixed) {
       /* TODO: disabled, this code works only on non filtered index. Set to fixed value
       calc_fee(raw_transaction_data)
