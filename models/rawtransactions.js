@@ -141,7 +141,6 @@ module.exports = function(mongoose, properties) {
     time: { type: Number, index: true },
     blocktime: { type: Number, index: true },
     blockheight: { type: Number, index: true },
-    confirmations: { type: Number, index: true },
     vin: [vin],
     vout: [vout],
     ccdata: [ccdata],
@@ -202,11 +201,6 @@ module.exports = function(mongoose, properties) {
   RawTransactionsSchema.post('find', function(docs) {
     if (docs && properties) {
       docs.forEach(function(doc) {
-        if (properties.last_block && doc.blockheight > -1) {
-          doc.confirmations = properties.last_block - doc.blockheight + 1
-        } else {
-          doc.confirmations = 0
-        }
         calc_fee(doc)
         round(doc)
       })
@@ -215,11 +209,6 @@ module.exports = function(mongoose, properties) {
 
   RawTransactionsSchema.post('findOne', function(doc) {
     if (doc && properties) {
-      if (properties.last_block && doc.blockheight > -1) {
-        doc.confirmations = properties.last_block - doc.blockheight + 1
-      } else {
-        doc.confirmations = 0
-      }
       calc_fee(doc)
       round(doc)
     }
